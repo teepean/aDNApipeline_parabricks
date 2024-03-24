@@ -19,9 +19,9 @@ check_program java
 
 gpu_memory=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits --id=0 | awk '{print $1}')
 
-# Check if the GPU memory is less than 12282 MiB
-if [ "$gpu_memory" -lt 15000 ]; then
-    echo "Not enough GPU memory"
+# Check if the GPU memory is less than 24 MiB
+if [ "$gpu_memory" -lt 21000 ]; then
+    echo "Not enough GPU memory. Please use adnapipeline_paired_gpu_lowmem.sh"
     exit 1
 fi
 
