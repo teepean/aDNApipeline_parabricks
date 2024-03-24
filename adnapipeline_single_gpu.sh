@@ -119,7 +119,7 @@ echo "Aligning"
 
 #bwa aln -t $THREADS hs37d5.fa $INDNAME/$INDNAME.r1.fastq.gz -n 0.01 -l 1024 -k 2 > $INDNAME/$INDNAME.sai
 #bwa samse -r "@RG\tID:ILLUMINA-$INDNAME\tSM:$INDNAME\tPL:illumina\tPU:ILLUMINA-$INDNAME-SE" hs37d5.fa $INDNAME/$INDNAME.sai $INDNAME/$INDNAME.r1.fastq.gz | samtools sort --no-PG -@ $THREADS -O bam - > $INDNAME/$INDNAME_SE.mapped.bam
-docker run --gpus all --rm --volume "$WORKPATH":/workdir --volume $(pwd):/rootdir --volume $(pwd):/outputdir nvcr.io/nvidia/clara/clara-parabricks:4.2.1-1 pbrun fq2bam --low-memory --ref /rootdir/hs37d5.fa --in-se-fq /outputdir/${INDNAME}/${INDNAME}.fastp.fastq.gz --out-bam /outputdir/${INDNAME}/${INDNAME}_SE.mapped.bam
+docker run --gpus all --rm --volume "$WORKPATH":/workdir --volume $(pwd):/rootdir --volume $(pwd):/outputdir nvcr.io/nvidia/clara/clara-parabricks:4.2.1-1 pbrun fq2bam --ref /rootdir/hs37d5.fa --in-se-fq /outputdir/${INDNAME}/${INDNAME}.fastp.fastq.gz --out-bam /outputdir/${INDNAME}/${INDNAME}_SE.mapped.bam
 #samtools index -@ $THREADS ${INDNAME}/${INDNAME}_SE.mapped.bam
 
 echo "Marking duplicates"

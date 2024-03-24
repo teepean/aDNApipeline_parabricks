@@ -20,7 +20,7 @@ check_program java
 gpu_memory=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits --id=0 | awk '{print $1}')
 
 # Check if the GPU memory is less than 12282 MiB
-if [ "$gpu_memory" -lt 15000 ]; then
+if [ "$gpu_memory" -lt 12282 ]; then
     echo "Not enough GPU memory"
     exit 1
 fi
@@ -126,7 +126,7 @@ echo
 
 #bwa aln -t $THREADS hs37d5.fa $INDNAME/$INDNAME.r1.fastq.gz -n 0.01 -l 1024 -k 2 > $INDNAME/$INDNAME.sai
 #bwa samse -r "@RG\tID:ILLUMINA-$INDNAME\tSM:$INDNAME\tPL:illumina\tPU:ILLUMINA-$INDNAME-SE" hs37d5.fa $INDNAME/$INDNAME.sai $INDNAME/$INDNAME.r1.fastq.gz | samtools sort --no-PG -@ $THREADS -O bam - > $INDNAME/$INDNAME_SE.mapped.bam
-docker run --gpus all --rm --volume "$WORKPATH":/workdir --volume $(pwd):/rootdir --volume $(pwd):/outputdir nvcr.io/nvidia/clara/clara-parabricks:4.2.1-1 pbrun fq2bam --ref /rootdir/hs37d5.fa --in-se-fq /outputdir/${INDNAME}/${INDNAME}.merged.fastq.gz --out-bam /outputdir/${INDNAME}/${INDNAME}_PE.mapped.bam
+docker run --gpus all --rm --volume "$WORKPATH":/workdir --volume $(pwd):/rootdir --volume $(pwd):/outputdir nvcr.io/nvidia/clara/clara-parabricks:4.2.1-1 pbrun fq2bam --low-memory --ref /rootdir/hs37d5.fa --in-se-fq /outputdir/${INDNAME}/${INDNAME}.merged.fastq.gz --out-bam /outputdir/${INDNAME}/${INDNAME}_PE.mapped.bam
 samtools index -@ $THREADS ${INDNAME}/${INDNAME}_PE.mapped.bam
 
 echo "Marking duplicates"

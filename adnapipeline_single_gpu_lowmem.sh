@@ -1,8 +1,8 @@
-# Simple aDNA Pipeline for paired-end fastqs
+#!/bin/bash
 
-echo
-echo "*** Simple aDNA Pipeline for paired-end fastqs***"
-echo
+# Simple aDNA Pipeline for single-end fastqs
+
+echo "*** Simple aDNA Pipeline for single-end fastqs ***"
 
 check_program() {
   if ! command -v $1 &> /dev/null; then
@@ -20,14 +20,14 @@ check_program java
 gpu_memory=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits --id=0 | awk '{print $1}')
 
 # Check if the GPU memory is less than 12282 MiB
-if [ "$gpu_memory" -lt 15000 ]; then
+if [ "$gpu_memory" -lt 12282 ]; then
     echo "Not enough GPU memory"
     exit 1
 fi
 
 if [ "$#" -eq 0 ]; then
   echo "Syntax:"
-  echo "    ${0##*/} <fastq 1> <fastq 2> <threads> <Population name> <Individual name>"
+  echo "    adnapipe_single <fastq1> <threads> <Population name> <Individual name>"
   echo
   exit 1
 fi
@@ -74,11 +74,10 @@ if [ ! -e hs37d5.fa.bwt ]; then
   esac
 fi
 
-FASTQ1=$1
-FASTQ2=$2
-THREADS=$3
-POPNAME=$4
-INDNAME=$5
+FASTQ=$1
+THREADS=$2
+POPNAME=$3
+INDNAME=$4
 
 if [ -d "$INDNAME" ]; then
   echo
@@ -102,38 +101,32 @@ else
   mkdir -p "$INDNAME"
 fi
 
-if [ -e "$FASTQ1" ]; then
-  FASTQONE=$(realpath "$FASTQ1")
-  FASTQTWO=$(realpath "$FASTQ2")
+echo "Removing adapters"
+
+if [ -f "$PWD/$FASTQ" ]; then
+  FASTQ1="$PWD/$FASTQ"
 else
-  FASTQONE=$FASTQ1
-  FASTQTWO=$FASTQ2
+  FASTQ1=$FASTQ
 fi
 
 WORKPATH=$(dirname "$FASTQ1")
 
-echo
-echo "Preprocessing and removing adapters"
-echo
-
-cd "$INDNAME" || exit
-fastp --in1 "$FASTQONE" --in2 "$FASTQTWO" --out1 "${INDNAME}.fastp.fastq.gz" --out2 "${INDNAME}.fastp.fastq.gz" --json "${INDNAME}.fastp.json" --html "${INDNAME}.fastp.html" -m --merged_out "${INDNAME}.merged.fastq.gz" --thread 4 --detect_adapter_for_pe --include_unmerged --length_required 25
+cd $INDNAME
+fastp --in1 $FASTQ1 --out1  $INDNAME.fastp.fastq.gz --thread 4 --length_required 25 --json $INDNAME.fastp.json --html $INDNAME.fastp.html
 cd ..
 
-echo
 echo "Aligning"
-echo
 
 #bwa aln -t $THREADS hs37d5.fa $INDNAME/$INDNAME.r1.fastq.gz -n 0.01 -l 1024 -k 2 > $INDNAME/$INDNAME.sai
 #bwa samse -r "@RG\tID:ILLUMINA-$INDNAME\tSM:$INDNAME\tPL:illumina\tPU:ILLUMINA-$INDNAME-SE" hs37d5.fa $INDNAME/$INDNAME.sai $INDNAME/$INDNAME.r1.fastq.gz | samtools sort --no-PG -@ $THREADS -O bam - > $INDNAME/$INDNAME_SE.mapped.bam
-docker run --gpus all --rm --volume "$WORKPATH":/workdir --volume $(pwd):/rootdir --volume $(pwd):/outputdir nvcr.io/nvidia/clara/clara-parabricks:4.2.1-1 pbrun fq2bam --ref /rootdir/hs37d5.fa --in-se-fq /outputdir/${INDNAME}/${INDNAME}.merged.fastq.gz --out-bam /outputdir/${INDNAME}/${INDNAME}_PE.mapped.bam
-samtools index -@ $THREADS ${INDNAME}/${INDNAME}_PE.mapped.bam
+docker run --gpus all --rm --volume "$WORKPATH":/workdir --volume $(pwd):/rootdir --volume $(pwd):/outputdir nvcr.io/nvidia/clara/clara-parabricks:4.2.1-1 pbrun fq2bam --low-memory --ref /rootdir/hs37d5.fa --in-se-fq /outputdir/${INDNAME}/${INDNAME}.fastp.fastq.gz --out-bam /outputdir/${INDNAME}/${INDNAME}_SE.mapped.bam
+#samtools index -@ $THREADS ${INDNAME}/${INDNAME}_SE.mapped.bam
 
 echo "Marking duplicates"
 
-# mv $INDNAME/$INDNAME_SE.mapped.bam $INDNAME/$INDNAME.bam
-java -Xmx4g -jar picard/picard.jar MarkDuplicates INPUT=${INDNAME}/${INDNAME}_PE.mapped.bam OUTPUT=$INDNAME/$INDNAME_rmdup.bam REMOVE_DUPLICATES=TRUE AS=TRUE METRICS_FILE=$INDNAME/$INDNAME_rmdup.metrics VALIDATION_STRINGENCY=SILENT
+java -Xmx4g -jar picard/picard.jar MarkDuplicates INPUT=${INDNAME}/${INDNAME}_SE.mapped.bam OUTPUT=$INDNAME/$INDNAME_rmdup.bam REMOVE_DUPLICATES=TRUE AS=TRUE METRICS_FILE=$INDNAME/$INDNAME_rmdup.metrics VALIDATION_STRINGENCY=SILENT
 samtools index -@ $THREADS $INDNAME/$INDNAME_rmdup.bam
+
 
 echo "Damage profiling"
 # Uncomment and adjust paths as necessary
